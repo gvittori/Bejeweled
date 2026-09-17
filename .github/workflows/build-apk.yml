@@ -53,8 +53,10 @@ jobs:
           
           # Check if icon.png exists in root folder before running asset generation
           if [ -f "icon.png" ]; then
-            echo "icon.png found! Generating Android icon assets from root..."
-            bunx @capacitor/assets generate --android --icon icon.png
+            echo "icon.png found! Setting up assets directory..."
+            mkdir -p assets
+            cp icon.png assets/icon.png
+            bunx @capacitor/assets generate --android
           else
             echo "No icon.png found in root folder. Skipping custom icon generation."
           fi
