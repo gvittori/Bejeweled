@@ -28,8 +28,8 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      - name: Install Capacitor CLI
-        run: bun add @capacitor/core @capacitor/cli @capacitor/android
+      - name: Install Capacitor CLI & Assets Tool
+        run: bun add @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
 
       - name: Derive App Name & Package ID from GitHub Repo
         id: metadata
@@ -53,13 +53,13 @@ jobs:
           
           # Check if icon.png exists in root folder before running asset generation
           if [ -f "icon.png" ]; then
-            echo "icon.png found! Generating Android icon assets..."
-            bunx @capacitor/assets generate --android
+            echo "icon.png found! Generating Android icon assets from root..."
+            bunx @capacitor/assets generate --android --icon icon.png
           else
             echo "No icon.png found in root folder. Skipping custom icon generation."
           fi
           
-          bunx cap copy android
+          bunx cap sync android
 
       - name: Build APK via Gradle
         run: |
