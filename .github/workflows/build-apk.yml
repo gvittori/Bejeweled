@@ -31,22 +31,34 @@ jobs:
       - name: Install Capacitor CLI
         run: bun add @capacitor/core @capacitor/cli @capacitor/android
 
-      - name: Extract App Name & Generate Dynamic Package ID
-        id: app_info
+      - name: Derive App Name & Package ID from GitHub Repo
+        id: metadata
         run: |
-          # Extract name from package.json (or fallback to 'MobileApp')
-          APP_NAME=$(jq -r '.name // "MobileApp"' package.json | tr -cd 'a-zA-Z0-9')
-          # Convert name to lowercase for a valid Java package ID
-          PKG_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
+          # Extract repository name from 'owner/repo' (e.g., 'username/my-awesome-game' -> 'my-awesome-game')
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
           
-          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          # Clean name for app title (removes dashes/underscores and capitalizes: 'my-awesome-game' -> 'MyAwesomeGame')
+          CLEAN_APP_NAME=$(echo "$REPO_NAME" | sed -E 's/[-_]+(.)/\U\1/g; s/^(.)/\U\1/')
+          
+          # Convert to lowercase for Java package identifier (e.g., 'com.app.myawesomegame')
+          PKG_NAME=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9')
+          
+          echo "APP_NAME=$CLEAN_APP_NAME" >> $GITHUB_ENV
           echo "PKG_ID=com.app.$PKG_NAME" >> $GITHUB_ENV
 
       - name: Initialize Capacitor & Add Android Platform
         run: |
           bunx cap init "${{ env.APP_NAME }}" "${{ env.PKG_ID }}" --web-dir dist || true
           bunx cap add android || true
-          if [ -f "icon.png" ]; then bunx @capacitor/assets generate --android; fi
+          
+          # Check if icon.png exists in root folder before running asset generation
+          if [ -f "icon.png" ]; then
+            echo "icon.png found! Generating Android icon assets..."
+            bunx @capacitor/assets generate --android
+          else
+            echo "No icon.png found in root folder. Skipping custom icon generation."
+          fi
+          
           bunx cap copy android
 
       - name: Build APK via Gradle
