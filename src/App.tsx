@@ -9,6 +9,7 @@ import { GameOverModal } from './components/GameOverModal';
 import { HeaderHUD } from './components/HeaderHUD';
 import { HowToPlayModal } from './components/HowToPlayModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
+import { RestartConfirmModal } from './components/RestartConfirmModal';
 import { sound } from './game/sound';
 import { SaveManager } from './game/saveManager';
 import { GameMode, GameState } from './types';
@@ -24,6 +25,7 @@ export default function App() {
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
   const [isHowToPlayOpen, setIsHowToPlayOpen] = useState<boolean>(false);
   const [isGameOverModalOpen, setIsGameOverModalOpen] = useState<boolean>(false);
+  const [isRestartConfirmOpen, setIsRestartConfirmOpen] = useState<boolean>(false);
 
   // Level Up announcement toast
   const [levelUpToast, setLevelUpToast] = useState<{ level: number } | null>(null);
@@ -142,9 +144,18 @@ export default function App() {
   }, [mode]);
 
   const handleHeaderRestart = () => {
-    if (window.confirm('Restart the current game?')) {
-      restartGame();
-    }
+    sound.playClick();
+    setIsRestartConfirmOpen(true);
+  };
+
+  const handleConfirmRestart = () => {
+    setIsRestartConfirmOpen(false);
+    restartGame();
+    sound.playClick();
+  };
+
+  const handleCancelRestart = () => {
+    setIsRestartConfirmOpen(false);
   };
 
   const handleChangeMode = (newMode: GameMode) => {
@@ -333,6 +344,15 @@ export default function App() {
       <HowToPlayModal
         isOpen={isHowToPlayOpen}
         onClose={() => setIsHowToPlayOpen(false)}
+      />
+
+      <RestartConfirmModal
+        isOpen={isRestartConfirmOpen}
+        score={stats.score}
+        level={stats.level}
+        mode={mode}
+        onConfirm={handleConfirmRestart}
+        onCancel={handleCancelRestart}
       />
     </div>
   );

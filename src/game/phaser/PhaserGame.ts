@@ -41,6 +41,9 @@ export class PhaserGameBridge {
       height: safeHeight,
       backgroundColor: '#0b0914',
       transparent: false,
+      audio: {
+        noAudio: true,
+      },
       physics: {
         default: 'arcade',
         arcade: {
