@@ -1,6 +1,6 @@
 {
   "name": "Bejeweled Classic",
-  "description": "A vibrant mobile-friendly HTML5 Canvas Bejeweled clone with smooth touch controls, animated gem rotations, combo explosions, score multipliers, sound effects, and local leaderboards.",
+  "description": "A vibrant mobile-friendly Bejeweled match-3 game powered by Phaser 3, featuring Arcade Physics particle explosions, responsive touch and swipe controls, special gems, cascade multipliers, and procedural audio.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

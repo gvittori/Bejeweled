@@ -1,11 +1,9 @@
 import React from 'react';
 import {
-  Trophy,
   Volume2,
   VolumeX,
   Pause,
   Play,
-  Lightbulb,
   RotateCcw,
   Sparkles,
   Timer as TimerIcon,
@@ -18,9 +16,9 @@ interface HeaderHUDProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onTogglePause: () => void;
-  onTriggerHint: () => void;
+  onTriggerHint?: () => void;
   onRestart: () => void;
-  onOpenLeaderboard: () => void;
+  onOpenLeaderboard?: () => void;
   onOpenHowToPlay: () => void;
   onChangeMode: (mode: GameMode) => void;
 }
@@ -30,9 +28,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
   isMuted,
   onToggleMute,
   onTogglePause,
-  onTriggerHint,
   onRestart,
-  onOpenLeaderboard,
   onOpenHowToPlay,
   onChangeMode,
 }) => {
@@ -42,17 +38,25 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
   const isTimeCritical = stats.mode !== 'zen' && stats.timeRemaining <= 8;
 
   return (
-    <header id="game-header-hud" className="w-full max-w-xl mx-auto px-3 pt-2 pb-1 select-none">
+    <header
+      id="game-header-hud"
+      className="w-full max-w-xl mx-auto pb-1 select-none transition-all box-border"
+      style={{
+        paddingTop: 'calc(max(env(safe-area-inset-top, 0px), 16px) + 8px)',
+        paddingLeft: 'max(env(safe-area-inset-left, 0px), 18px)',
+        paddingRight: 'max(env(safe-area-inset-right, 0px), 18px)',
+      }}
+    >
       {/* Top Bar: Mode Select & Quick Controls */}
-      <div className="flex items-center justify-between gap-2 mb-2">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-2 w-full">
         {/* Game Mode Pills */}
-        <div className="flex items-center bg-slate-900/80 p-1 rounded-full border border-slate-800 backdrop-blur-sm">
+        <div className="flex items-center bg-slate-900/80 p-0.5 sm:p-1 rounded-full border border-slate-800 backdrop-blur-sm shadow-sm shrink-0">
           {(['classic', 'blitz', 'zen'] as GameMode[]).map((m) => (
             <button
               key={m}
               id={`mode-btn-${m}`}
               onClick={() => onChangeMode(m)}
-              className={`px-2.5 py-1 rounded-full text-xs font-bold tracking-wider uppercase transition-all ${
+              className={`px-2 sm:px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-bold tracking-wider uppercase transition-all ${
                 stats.mode === m
                   ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-md shadow-amber-500/30'
                   : 'text-slate-400 hover:text-slate-200'
@@ -63,22 +67,13 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
           ))}
         </div>
 
-        {/* Action icons */}
-        <div className="flex items-center gap-1.5">
-          <button
-            id="hint-btn"
-            onClick={onTriggerHint}
-            title="Hint"
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-amber-300 border border-slate-700/60 active:scale-95 transition-all"
-          >
-            <Lightbulb className="w-4 h-4" />
-          </button>
-
+        {/* Action icons (Hint removed from top, available in bottom footer) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             id="mute-btn"
             onClick={onToggleMute}
             title={isMuted ? 'Unmute' : 'Mute'}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/60 active:scale-95 transition-all shadow-sm"
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
           </button>
@@ -87,25 +82,16 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
             id="pause-btn"
             onClick={onTogglePause}
             title={stats.isPaused ? 'Resume' : 'Pause'}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700/60 active:scale-95 transition-all shadow-sm"
           >
             {stats.isPaused ? <Play className="w-4 h-4 text-emerald-400" /> : <Pause className="w-4 h-4" />}
-          </button>
-
-          <button
-            id="leaderboard-btn"
-            onClick={onOpenLeaderboard}
-            title="Leaderboard"
-            className="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 active:scale-95 transition-all"
-          >
-            <Trophy className="w-4 h-4" />
           </button>
 
           <button
             id="help-btn"
             onClick={onOpenHowToPlay}
             title="How to Play"
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 border border-slate-700/60 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-slate-700/60 active:scale-95 transition-all shadow-sm"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
@@ -114,7 +100,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
             id="restart-btn"
             onClick={onRestart}
             title="Restart"
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 border border-slate-700/60 active:scale-95 transition-all"
+            className="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-400 border border-slate-700/60 active:scale-95 transition-all shadow-sm"
           >
             <RotateCcw className="w-4 h-4" />
           </button>

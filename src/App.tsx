@@ -2,7 +2,7 @@
  * Bejeweled Classic - Main Application
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { GameBoard } from './components/GameBoard';
 import { GameOverModal } from './components/GameOverModal';
@@ -10,11 +10,12 @@ import { HeaderHUD } from './components/HeaderHUD';
 import { HowToPlayModal } from './components/HowToPlayModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { sound } from './game/sound';
+import { SaveManager } from './game/saveManager';
 import { GameMode, GameState } from './types';
-import { Sparkles, Trophy, Lightbulb, HelpCircle, Play, Pause } from 'lucide-react';
+import { Sparkles, Trophy, Lightbulb, HelpCircle, Play, Pause, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
-  const [mode, setMode] = useState<GameMode>('classic');
+  const [mode, setMode] = useState<GameMode>(() => SaveManager.loadLastActiveMode());
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(() => sound.getMuted());
   const [hintTrigger, setHintTrigger] = useState<number>(0);
@@ -27,22 +28,46 @@ export default function App() {
   // Level Up announcement toast
   const [levelUpToast, setLevelUpToast] = useState<{ level: number } | null>(null);
 
-  // Key stats from GameBoard
+  // Game Resumed announcement toast (especially visible on mobile reload/resume)
+  const [resumeToast, setResumeToast] = useState<{ level: number; score: number; multiplier: number } | null>(null);
+
+  // Key stats from GameBoard, initialized from local persistence if available
   const [gameSessionId, setGameSessionId] = useState<number>(0);
-  const [stats, setStats] = useState<GameState>({
-    score: 0,
-    level: 1,
-    progress: 0,
-    maxProgress: 1000,
-    multiplier: 1,
-    cascadeCount: 0,
-    maxComboMultiplier: 1,
-    timeRemaining: 0,
-    maxTime: 0,
-    movesMade: 0,
-    isPaused: false,
-    isGameOver: false,
-    mode: 'classic',
+  const [stats, setStats] = useState<GameState>(() => {
+    const initialMode = SaveManager.loadLastActiveMode();
+    const saved = SaveManager.loadProgress(initialMode);
+    if (saved && saved.score >= 0 && saved.level >= 1) {
+      return {
+        score: saved.score,
+        level: saved.level,
+        progress: saved.progress || 0,
+        maxProgress: saved.maxProgress || 1000,
+        multiplier: saved.multiplier || 1,
+        cascadeCount: saved.comboCascade || 0,
+        maxComboMultiplier: saved.maxComboMultiplier || 1,
+        timeRemaining: saved.timeRemaining !== undefined ? saved.timeRemaining : (initialMode === 'blitz' ? 60 : 0),
+        maxTime: saved.maxTime || (initialMode === 'blitz' ? 60 : 0),
+        movesMade: saved.movesMade || 0,
+        isPaused: false,
+        isGameOver: false,
+        mode: initialMode,
+      };
+    }
+    return {
+      score: 0,
+      level: 1,
+      progress: 0,
+      maxProgress: 1000,
+      multiplier: 1,
+      cascadeCount: 0,
+      maxComboMultiplier: 1,
+      timeRemaining: initialMode === 'blitz' ? 60 : 0,
+      maxTime: initialMode === 'blitz' ? 60 : 0,
+      movesMade: 0,
+      isPaused: false,
+      isGameOver: false,
+      mode: initialMode,
+    };
   });
 
   const handleStatsUpdate = useCallback((newStats: GameState) => {
@@ -50,6 +75,7 @@ export default function App() {
   }, []);
 
   const handleGameOver = useCallback((finalStats: GameState) => {
+    SaveManager.clearSavedProgress(finalStats.mode);
     setStats(finalStats);
     setIsGameOverModalOpen(true);
   }, []);
@@ -71,6 +97,15 @@ export default function App() {
     }, 2400);
   }, []);
 
+  const handleGameResumed = useCallback((info: { level: number; score: number; multiplier: number }) => {
+    if (info.score > 0 || info.level > 1) {
+      setResumeToast(info);
+      setTimeout(() => {
+        setResumeToast(null);
+      }, 3500);
+    }
+  }, []);
+
   const handleToggleMute = () => {
     const updated = sound.toggleMute();
     setIsMuted(updated);
@@ -85,6 +120,7 @@ export default function App() {
   };
 
   const restartGame = useCallback(() => {
+    SaveManager.clearSavedProgress(mode);
     setIsGameOverModalOpen(false);
     setIsPaused(false);
     setGameSessionId((prev) => prev + 1);
@@ -114,19 +150,45 @@ export default function App() {
   const handleChangeMode = (newMode: GameMode) => {
     if (newMode !== mode) {
       setMode(newMode);
+      SaveManager.saveLastActiveMode(newMode);
       setIsPaused(false);
       setIsGameOverModalOpen(false);
       setGameSessionId((prev) => prev + 1);
-      setStats((prev) => ({
-        ...prev,
-        score: 0,
-        level: 1,
-        progress: 0,
-        timeRemaining: newMode === 'blitz' ? 60 : 0,
-        maxTime: newMode === 'blitz' ? 60 : 0,
-        isGameOver: false,
-        mode: newMode,
-      }));
+
+      // Check if target mode has saved progress
+      const saved = SaveManager.loadProgress(newMode);
+      if (saved && saved.score >= 0 && saved.level >= 1) {
+        setStats({
+          score: saved.score,
+          level: saved.level,
+          progress: saved.progress || 0,
+          maxProgress: saved.maxProgress || 1000,
+          multiplier: saved.multiplier || 1,
+          cascadeCount: saved.comboCascade || 0,
+          maxComboMultiplier: saved.maxComboMultiplier || 1,
+          timeRemaining: saved.timeRemaining !== undefined ? saved.timeRemaining : (newMode === 'blitz' ? 60 : 0),
+          maxTime: saved.maxTime || (newMode === 'blitz' ? 60 : 0),
+          movesMade: saved.movesMade || 0,
+          isPaused: false,
+          isGameOver: false,
+          mode: newMode,
+        });
+      } else {
+        setStats((prev) => ({
+          ...prev,
+          score: 0,
+          level: 1,
+          progress: 0,
+          maxProgress: 1000,
+          multiplier: 1,
+          cascadeCount: 0,
+          maxComboMultiplier: 1,
+          timeRemaining: newMode === 'blitz' ? 60 : 0,
+          maxTime: newMode === 'blitz' ? 60 : 0,
+          isGameOver: false,
+          mode: newMode,
+        }));
+      }
     }
   };
 
@@ -148,7 +210,6 @@ export default function App() {
         onTogglePause={handleTogglePause}
         onTriggerHint={handleTriggerHint}
         onRestart={handleHeaderRestart}
-        onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         onOpenHowToPlay={() => setIsHowToPlayOpen(true)}
         onChangeMode={handleChangeMode}
       />
@@ -157,11 +218,26 @@ export default function App() {
       {levelUpToast && (
         <div
           id="level-up-toast"
-          className="absolute top-28 left-1/2 -translate-x-1/2 z-40 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 text-slate-950 font-black text-lg tracking-wider uppercase shadow-2xl shadow-amber-500/50 flex items-center gap-2 animate-bounce border-2 border-yellow-200"
+          style={{ top: 'calc(max(env(safe-area-inset-top, 0px), 14px) + 72px)' }}
+          className="absolute left-1/2 -translate-x-1/2 z-40 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 text-slate-950 font-black text-lg tracking-wider uppercase shadow-2xl shadow-amber-500/50 flex items-center gap-2 animate-bounce border-2 border-yellow-200"
         >
           <Sparkles className="w-5 h-5 text-yellow-100 animate-spin" />
           <span>Level {levelUpToast.level}! Multiplier Up!</span>
           <Sparkles className="w-5 h-5 text-yellow-100 animate-spin" />
+        </div>
+      )}
+
+      {/* Resumed Progress Toast (Active on Mobile reload or tab restore) */}
+      {resumeToast && (
+        <div
+          id="resumed-progress-toast"
+          style={{ top: 'calc(max(env(safe-area-inset-top, 0px), 14px) + 72px)' }}
+          className="absolute left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-slate-900/95 border border-emerald-500/60 text-slate-100 shadow-2xl shadow-emerald-500/20 flex items-center gap-2.5 animate-fade-in backdrop-blur-md"
+        >
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="text-xs font-semibold">
+            <span className="text-emerald-400 font-bold">Progress Restored:</span> Level {resumeToast.level} • {resumeToast.score.toLocaleString()} pts • x{resumeToast.multiplier.toFixed(1)} Mult
+          </div>
         </div>
       )}
 
@@ -174,6 +250,7 @@ export default function App() {
           onStatsUpdate={handleStatsUpdate}
           onGameOver={handleGameOver}
           onLevelUp={handleLevelUp}
+          onGameResumed={handleGameResumed}
           hintTrigger={hintTrigger}
         />
 
@@ -205,23 +282,30 @@ export default function App() {
       {/* Quick Touch Action Footer (Mobile Friendly) */}
       <footer
         id="game-quick-footer"
-        className="w-full max-w-xl mx-auto px-4 py-1.5 flex items-center justify-between text-xs text-slate-400 border-t border-slate-900/80 bg-slate-950/40"
+        style={{
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 10px)',
+          paddingLeft: 'max(env(safe-area-inset-left, 0px), 18px)',
+          paddingRight: 'max(env(safe-area-inset-right, 0px), 18px)',
+        }}
+        className="w-full max-w-xl mx-auto pt-2 pb-1 flex items-center justify-between text-xs text-slate-400 border-t border-slate-900/80 bg-slate-950/60 box-border shrink-0"
       >
         <button
           onClick={handleTriggerHint}
-          className="flex items-center gap-1.5 hover:text-amber-300 transition-colors py-1 px-2.5 rounded-lg active:bg-slate-800"
+          className="flex items-center gap-1.5 hover:text-amber-300 transition-colors py-1.5 px-3 rounded-xl bg-slate-900/80 border border-slate-800/80 active:bg-slate-800 shrink-0 shadow-sm"
         >
           <Lightbulb className="w-4 h-4 text-amber-400" />
           <span className="font-semibold">Get Hint</span>
         </button>
 
-        <div className="flex items-center gap-2 text-[11px] text-slate-500">
-          <span>Swipe or tap adjacent gems to swap</span>
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 px-1">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+          <span className="hidden sm:inline">Auto-saved locally</span>
+          <span className="sm:hidden">Saved</span>
         </div>
 
         <button
           onClick={() => setIsLeaderboardOpen(true)}
-          className="flex items-center gap-1.5 hover:text-amber-300 transition-colors py-1 px-2.5 rounded-lg active:bg-slate-800"
+          className="flex items-center gap-1.5 hover:text-amber-300 transition-colors py-1.5 px-3 rounded-xl bg-slate-900/80 border border-slate-800/80 active:bg-slate-800 shrink-0 shadow-sm"
         >
           <Trophy className="w-4 h-4 text-amber-400" />
           <span className="font-semibold">Rankings</span>
